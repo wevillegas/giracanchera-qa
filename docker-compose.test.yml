@@ -1,0 +1,19 @@
+# PostgreSQL efímero solo para tests. Puerto 5434 para no chocar con el Postgres de desarrollo (5433).
+# tmpfs: los datos viven en memoria; al bajar el contenedor no queda nada (cada corrida arranca de cero).
+services:
+  postgres-test:
+    image: postgres:17-alpine
+    container_name: giracanchera-postgres-test
+    environment:
+      POSTGRES_USER: qa
+      POSTGRES_PASSWORD: qa
+      POSTGRES_DB: giracanchera_test
+    ports:
+      - "5434:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qa -d giracanchera_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 15

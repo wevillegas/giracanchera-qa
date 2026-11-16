@@ -1,0 +1,18 @@
+{
+  "name": "giracanchera-qa",
+  "private": true,
+  "type": "module",
+  "description": "Pipeline de QA de GiraCanchera: tests de API (Postman/Newman) y E2E (Playwright)",
+  "scripts": {
+    "db:test:up": "docker compose -f docker-compose.test.yml up -d --wait",
+    "db:test:down": "docker compose -f docker-compose.test.yml down",
+    "db:test:reset": "node scripts/db.js reset",
+    "db:test:seed": "node scripts/db.js seed",
+    "start:api": "node scripts/start.js api",
+    "start:web": "node scripts/start.js web",
+    "start": "node scripts/start.js api web"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}
