@@ -31,7 +31,9 @@ export const backendEnv = {
   DATABASE_URL: DB_URL,
   DATABASE_URL_UNPOOLED: DB_URL, // prisma.config.js la prefiere para migrar: que tampoco salga del .env del back
   FRONTEND_URL: 'http://localhost:5173',
-  TRUST_PROXY: 'false',
+  // Un proxy delante, como en producción: los tests mandan X-Forwarded-For propio por corrida y así no comparten
+  // el contador del rate limit de login entre corridas seguidas
+  TRUST_PROXY: '1',
   SENTRY_DSN: '',
   CLOUDINARY_CLOUD_NAME: 'qa-dummy',
   CLOUDINARY_API_KEY: 'qa-dummy',
