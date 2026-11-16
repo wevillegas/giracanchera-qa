@@ -10,9 +10,15 @@
     "db:test:seed": "node scripts/db.js seed",
     "start:api": "node scripts/start.js api",
     "start:web": "node scripts/start.js web",
-    "start": "node scripts/start.js api web"
+    "start": "node scripts/start.js api web",
+    "test:api": "node scripts/test-api.js local",
+    "test:api:ci": "node scripts/test-api.js ci"
   },
   "engines": {
     "node": ">=22.18"
+  },
+  "devDependencies": {
+    "newman": "^6.2.3",
+    "newman-reporter-htmlextra": "^1.23.1"
   }
 }
