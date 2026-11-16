@@ -40,4 +40,17 @@ export const backendEnv = {
   CLOUDINARY_API_SECRET: 'qa-dummy',
 };
 
-export const frontendEnv = { ...process.env, VITE_API_URL: '/api', VITE_SENTRY_DSN: '' };
+// La API en :5000 tiene que ser la de test (por ejemplo, no el `npm run dev` del backend con la base de desarrollo):
+// solo la base de test tiene el estadio del seed con su UUID fijo
+export const MONUMENTAL_ID = '20000000-0000-4000-8000-000000000001';
+export async function assertTestApi(apiUrl = 'http://localhost:5000/api') {
+  let res;
+  try {
+    res = await fetch(`${apiUrl}/stadiums/${MONUMENTAL_ID}`);
+  } catch {
+    throw new Error(`La API no responde en ${apiUrl}. Levantala con: npm run start:api`);
+  }
+  if (res.status !== 200) throw new Error(`La API en ${apiUrl} no usa la base de test sembrada (¿está corriendo el backend de desarrollo?)`);
+}
+
+export const frontendEnv ={ ...process.env, VITE_API_URL: '/api', VITE_SENTRY_DSN: '' };

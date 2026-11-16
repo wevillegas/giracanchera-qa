@@ -3,20 +3,18 @@
 import { execSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import newman from 'newman';
-import './env.js';
+import { assertTestApi } from './env.js';
 
 const envName = process.argv[2] || 'local';
 const dir = 'api-tests';
-const baseUrl = 'http://localhost:5000/api';
-
-try {
-  await fetch(`${baseUrl}/health`);
-} catch {
-  console.error(`La API no responde en ${baseUrl}. Levantala con: npm run start:api`);
-  process.exit(1);
-}
 
 execSync('node scripts/db.js seed', { stdio: 'inherit' });
+try {
+  await assertTestApi();
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
 
 // Las contraseñas no están en los archivos de entorno: entran desde .env / GitHub Secrets
 const envVar = [
