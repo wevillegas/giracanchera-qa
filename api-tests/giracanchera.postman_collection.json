@@ -1,0 +1,2118 @@
+{
+  "info": {
+    "name": "GiraCanchera API",
+    "description": "Suite de API de GiraCanchera. Correr contra la base de TEST (npm run test:api).\n\nEl status esperado de cada request va al final de su nombre (\"→ 401\") y lo verifica el script de la colección, junto con tiempo de respuesta, JSON, encabezados de seguridad y formato de errores.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "protocolProfileBehavior": {
+    "disableCookies": true
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Cada corrida simula su propio cliente (IP) ante el rate limit de login (20 cada 15 min).",
+          "// La API de test confía en un proxy (TRUST_PROXY=1), igual que producción detrás de Render.",
+          "const lodash = require('lodash');",
+          "if (!pm.collectionVariables.get('clientIp')) {",
+          "  pm.collectionVariables.set('clientIp', ['10', lodash.random(0, 255), lodash.random(0, 255), lodash.random(1, 254)].join('.'));",
+          "}",
+          "pm.request.headers.upsert({ key: 'X-Forwarded-For', value: pm.collectionVariables.get('clientIp') });"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Status esperado: sale del nombre (\"... → 401\") o, en las corridas con CSV, de la columna expectedStatus",
+          "const fromName = pm.info.requestName.match(/→\\s*(\\d{3})\\s*$/);",
+          "const expected = Number(pm.iterationData.get('expectedStatus') || (fromName && fromName[1]));",
+          "if (expected && !pm.iterationData.get('expectedStatus')) {",
+          "  pm.test(`[común] status ${expected}`, () => pm.response.to.have.status(expected));",
+          "}",
+          "pm.test('[común] sin errores del servidor (5xx)', () => pm.expect(pm.response.code).to.be.below(500));",
+          "const maxMs = Number(pm.environment.get('maxResponseTime') || 1500);",
+          "pm.test(`[común] responde en menos de ${maxMs} ms`, () => pm.expect(pm.response.responseTime).to.be.below(maxMs));",
+          "pm.test('[común] responde JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+          "pm.test('[común] encabezados de seguridad (helmet)', () => pm.response.to.have.header('X-Content-Type-Options', 'nosniff'));",
+          "if (pm.response.code >= 400) {",
+          "  pm.test('[común] los errores traen un mensaje legible', () => pm.expect(pm.response.json().message).to.be.a('string').and.not.empty);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "anaEmail",
+      "value": "qa.ana@giracanchera.test",
+      "type": "string"
+    },
+    {
+      "key": "betoUsername",
+      "value": "qa_beto",
+      "type": "string"
+    },
+    {
+      "key": "adminEmail",
+      "value": "qa.admin@giracanchera.test",
+      "type": "string"
+    },
+    {
+      "key": "anaId",
+      "value": "30000000-0000-4000-8000-000000000002",
+      "type": "string"
+    },
+    {
+      "key": "betoId",
+      "value": "30000000-0000-4000-8000-000000000003",
+      "type": "string"
+    },
+    {
+      "key": "monumentalId",
+      "value": "20000000-0000-4000-8000-000000000001",
+      "type": "string"
+    },
+    {
+      "key": "cilindroId",
+      "value": "20000000-0000-4000-8000-000000000003",
+      "type": "string"
+    },
+    {
+      "key": "anaToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "betoToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "newToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "invalidToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clientIp",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "newUsername",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "newEmail",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdStadiumId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdVisitId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "schemaUser",
+      "value": "{\"type\":\"object\",\"required\":[\"_id\",\"username\",\"email\",\"rol\",\"createdAt\"],\"properties\":{\"_id\":{\"type\":\"string\",\"pattern\":\"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\"},\"username\":{\"type\":\"string\"},\"email\":{\"type\":\"string\"},\"rol\":{\"enum\":[\"user\",\"admin\",\"superadmin\"]}},\"not\":{\"required\":[\"password\"]}}",
+      "type": "string"
+    },
+    {
+      "key": "schemaSession",
+      "value": "{\"type\":\"object\",\"required\":[\"user\"],\"properties\":{\"user\":{\"type\":\"object\",\"required\":[\"_id\",\"username\",\"email\",\"rol\",\"createdAt\"],\"properties\":{\"_id\":{\"type\":\"string\",\"pattern\":\"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\"},\"username\":{\"type\":\"string\"},\"email\":{\"type\":\"string\"},\"rol\":{\"enum\":[\"user\",\"admin\",\"superadmin\"]}},\"not\":{\"required\":[\"password\"]}}}}",
+      "type": "string"
+    },
+    {
+      "key": "schemaStadium",
+      "value": "{\"type\":\"object\",\"required\":[\"_id\",\"name\",\"capacity\",\"location\",\"ownerType\",\"photos\"],\"properties\":{\"_id\":{\"type\":\"string\",\"pattern\":\"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\"},\"name\":{\"type\":\"string\",\"minLength\":1},\"capacity\":{\"type\":\"integer\",\"minimum\":0},\"ownerType\":{\"enum\":[\"club\",\"province\"]},\"photos\":{\"type\":\"array\"},\"location\":{\"type\":\"object\",\"required\":[\"city\",\"country\",\"coordinates\"],\"properties\":{\"coordinates\":{\"type\":\"object\",\"required\":[\"lat\",\"lng\"],\"properties\":{\"lat\":{\"type\":\"number\",\"minimum\":-90,\"maximum\":90},\"lng\":{\"type\":\"number\",\"minimum\":-180,\"maximum\":180}}}}}}}",
+      "type": "string"
+    },
+    {
+      "key": "schemaVisit",
+      "value": "{\"type\":\"object\",\"required\":[\"_id\",\"user\",\"stadium\",\"visitDate\",\"rating\",\"reviewText\",\"likes\",\"images\"],\"properties\":{\"_id\":{\"type\":\"string\",\"pattern\":\"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\"},\"stadium\":{\"type\":\"string\",\"pattern\":\"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$\"},\"rating\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":10},\"reviewText\":{\"type\":\"string\"},\"likes\":{\"type\":\"array\"},\"images\":{\"type\":\"array\"}}}",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Suite",
+      "description": "Suite principal (npm run test:api la corre entera).",
+      "item": [
+        {
+          "name": "01 Auth",
+          "description": "Login, sesión, registro y logout. Cada login guarda su token (sacado de la cookie Set-Cookie) en una variable de colección: {{anaToken}}, {{betoToken}}, {{adminToken}}.",
+          "item": [
+            {
+              "name": "Login — sin contraseña → 400",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{anaEmail}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Login — email que no es texto → 400",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": {\n    \"$ne\": \"\"\n  },\n  \"password\": \"cualquiera1\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('rechaza objetos (intento de inyección NoSQL)', () => pm.expect(pm.response.json().message).to.eql('Datos inválidos'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login — contraseña incorrecta → 401",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{anaEmail}}\",\n  \"password\": \"incorrecta123\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('mensaje genérico: no revela si la cuenta existe', () => pm.expect(pm.response.json().message).to.eql('Credenciales inválidas'));",
+                      "pm.test('no deja cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie') || '').to.not.include('gc_token'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login — usuario inexistente → 401",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"nadie@giracanchera.test\",\n  \"password\": \"cualquiera1\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('mismo mensaje que contraseña incorrecta', () => pm.expect(pm.response.json().message).to.eql('Credenciales inválidas'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login — Ana con email → 200",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{anaEmail}}\",\n  \"password\": \"{{anaPassword}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const setCookie = pm.response.headers.get('Set-Cookie') || '';",
+                      "const token = (setCookie.match(/gc_token=([^;]+)/) || [])[1];",
+                      "pm.test('deja la cookie de sesión httpOnly', () => {",
+                      "  pm.expect(token, 'cookie gc_token').to.be.a('string').and.not.empty;",
+                      "  pm.expect(setCookie).to.match(/HttpOnly/i);",
+                      "  pm.expect(setCookie).to.match(/SameSite=Lax/i);",
+                      "});",
+                      "pm.collectionVariables.set('anaToken', token);",
+                      "pm.test('devuelve la cuenta sin la contraseña', () => {",
+                      "  pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('schemaSession')));",
+                      "  const { user } = pm.response.json();",
+                      "  pm.expect(user.username).to.eql('qa_ana');",
+                      "  pm.expect(user).to.not.have.property('password');",
+                      "});",
+                      "pm.test('el token no viaja en el body', () => pm.expect(pm.response.text()).to.not.include(pm.collectionVariables.get('anaToken')));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login — Beto con username → 200",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"{{betoUsername}}\",\n  \"password\": \"{{betoPassword}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const setCookie = pm.response.headers.get('Set-Cookie') || '';",
+                      "const token = (setCookie.match(/gc_token=([^;]+)/) || [])[1];",
+                      "pm.test('deja la cookie de sesión httpOnly', () => {",
+                      "  pm.expect(token, 'cookie gc_token').to.be.a('string').and.not.empty;",
+                      "  pm.expect(setCookie).to.match(/HttpOnly/i);",
+                      "  pm.expect(setCookie).to.match(/SameSite=Lax/i);",
+                      "});",
+                      "pm.collectionVariables.set('betoToken', token);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login — Admin → 200",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "login"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const setCookie = pm.response.headers.get('Set-Cookie') || '';",
+                      "const token = (setCookie.match(/gc_token=([^;]+)/) || [])[1];",
+                      "pm.test('deja la cookie de sesión httpOnly', () => {",
+                      "  pm.expect(token, 'cookie gc_token').to.be.a('string').and.not.empty;",
+                      "  pm.expect(setCookie).to.match(/HttpOnly/i);",
+                      "  pm.expect(setCookie).to.match(/SameSite=Lax/i);",
+                      "});",
+                      "pm.collectionVariables.set('adminToken', token);",
+                      "pm.test('rol admin', () => pm.expect(pm.response.json().user.rol).to.eql('admin'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Sesión — /me con token → 200",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "me"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{anaToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('es la cuenta de Ana', () => { pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('schemaUser'))); pm.expect(pm.response.json().username).to.eql('qa_ana'); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Sesión — /me sin token → 401",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "me"
+                  ]
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Sesión — /me con token inválido → 401",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "me"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{invalidToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('invalidToken', 'esto.no.es-un-jwt');"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Registro — contraseña débil → 400",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/register",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "register"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"qa_debil\",\n  \"email\": \"debil@giracanchera.test\",\n  \"password\": \"abc\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Registro — email inválido → 400",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/register",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "register"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"qa_mal\",\n  \"email\": \"no-es-un-email\",\n  \"password\": \"Clave12345\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Registro — email ya registrado → 400",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/register",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "register"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"qa_otro\",\n  \"email\": \"{{anaEmail}}\",\n  \"password\": \"Clave12345\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('avisa que ya existe', () => pm.expect(pm.response.json().message).to.include('ya está registrado'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Registro — usuario nuevo → 201",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/register",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "register"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"{{newUsername}}\",\n  \"email\": \"{{newEmail}}\",\n  \"password\": \"Clave12345\",\n  \"nombre\": \"Nuevo QA\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// Único por corrida: la suite se puede repetir sin volver a sembrar la base",
+                      "const suffix = Date.now().toString(36);",
+                      "pm.collectionVariables.set('newUsername', 'qa_new_' + suffix);",
+                      "pm.collectionVariables.set('newEmail', 'qa.new.' + suffix + '@giracanchera.test');"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const setCookie = pm.response.headers.get('Set-Cookie') || '';",
+                      "const token = (setCookie.match(/gc_token=([^;]+)/) || [])[1];",
+                      "pm.test('deja la cookie de sesión httpOnly', () => {",
+                      "  pm.expect(token, 'cookie gc_token').to.be.a('string').and.not.empty;",
+                      "  pm.expect(setCookie).to.match(/HttpOnly/i);",
+                      "  pm.expect(setCookie).to.match(/SameSite=Lax/i);",
+                      "});",
+                      "pm.collectionVariables.set('newToken', token);",
+                      "pm.test('crea la cuenta con rol user (sin escalar privilegios)', () => {",
+                      "  const { user } = pm.response.json();",
+                      "  pm.expect(user.username).to.eql(pm.collectionVariables.get('newUsername'));",
+                      "  pm.expect(user.rol).to.eql('user');",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Logout — cierra la sesión → 200",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/logout",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "logout"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{newToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Sesión — token anterior al logout → 401",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/auth/me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "me"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{newToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('el logout invalida el token en el servidor, no solo la cookie', () => pm.expect(pm.response.json().message).to.include('expiró'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "02 Estadios",
+          "description": "Listado y detalle públicos; alta y baja solo para admin (401 sin sesión, 403 con rol user).",
+          "item": [
+            {
+              "name": "Estadios — listar → 200",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/stadiums",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stadiums"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('esquema de cada estadio', () => pm.response.to.have.jsonSchema({ type: 'array', minItems: 4, items: JSON.parse(pm.collectionVariables.get('schemaStadium')) }));",
+                      "pm.test('incluye los estadios del seed', () => {",
+                      "  const names = pm.response.json().map((s) => s.name);",
+                      "  pm.expect(names).to.include.members(['Estadio Monumental', 'Estadio Alberto J. Armando']);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Estadio — detalle → 200",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/stadiums/{{monumentalId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stadiums",
+                    "{{monumentalId}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const { stadium, visits } = pm.response.json();",
+                      "pm.test('datos del estadio', () => {",
+                      "  pm.expect(stadium.name).to.eql('Estadio Monumental');",
+                      "  pm.expect(stadium.mainClub.name).to.eql('River Plate');",
+                      "});",
+                      "pm.test('trae sus reseñas visibles', () => {",
+                      "  pm.expect(visits).to.be.an('array').that.is.not.empty;",
+                      "  visits.forEach((v) => pm.expect(v.hidden).to.eql(false));",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Estadio — id inexistente → 404",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/stadiums/20000000-0000-4000-8000-000000009999",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stadiums",
+                    "20000000-0000-4000-8000-000000009999"
+                  ]
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Estadio — id con formato inválido → 404",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/stadiums/no-es-un-uuid",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stadiums",
+                    "no-es-un-uuid"
+                  ]
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Estadio — crear sin sesión → 401",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/stadiums",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stadiums"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Estadio QA Newman\",\n  \"capacity\": 1000,\n  \"ownerType\": \"province\",\n  \"location\": {\n    \"city\": \"Rosario\",\n    \"province\": \"Santa Fe\",\n    \"country\": \"Argentina\",\n    \"coordinates\": {\n      \"lat\": -32.95,\n      \"lng\": -60.66\n    }\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Estadio — crear como usuario común → 403",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/stadiums",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stadiums"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{anaToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Estadio QA Newman\",\n  \"capacity\": 1000,\n  \"ownerType\": \"province\",\n  \"location\": {\n    \"city\": \"Rosario\",\n    \"province\": \"Santa Fe\",\n    \"country\": \"Argentina\",\n    \"coordinates\": {\n      \"lat\": -32.95,\n      \"lng\": -60.66\n    }\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Estadio — crear sin nombre → 400",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/stadiums",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stadiums"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"capacity\": 1000,\n  \"ownerType\": \"province\",\n  \"location\": {\n    \"city\": \"Rosario\",\n    \"province\": \"Santa Fe\",\n    \"country\": \"Argentina\",\n    \"coordinates\": {\n      \"lat\": -32.95,\n      \"lng\": -60.66\n    }\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Estadio — capacidad fuera de rango → 400",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/stadiums",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stadiums"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Estadio QA Newman\",\n  \"capacity\": 999999,\n  \"ownerType\": \"province\",\n  \"location\": {\n    \"city\": \"Rosario\",\n    \"province\": \"Santa Fe\",\n    \"country\": \"Argentina\",\n    \"coordinates\": {\n      \"lat\": -32.95,\n      \"lng\": -60.66\n    }\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Estadio — crear como admin → 201",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/stadiums",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stadiums"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Estadio QA Newman\",\n  \"capacity\": 1000,\n  \"ownerType\": \"province\",\n  \"location\": {\n    \"city\": \"Rosario\",\n    \"province\": \"Santa Fe\",\n    \"country\": \"Argentina\",\n    \"coordinates\": {\n      \"lat\": -32.95,\n      \"lng\": -60.66\n    }\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('devuelve el estadio creado', () => {",
+                      "  pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('schemaStadium')));",
+                      "  const s = pm.response.json();",
+                      "  pm.expect(s.name).to.eql('Estadio QA Newman');",
+                      "  pm.expect(s.mainClub, 'provincial: sin club dueño').to.be.null;",
+                      "  pm.collectionVariables.set('createdStadiumId', s._id);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Estadio — el creado aparece en el detalle → 200",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/stadiums/{{createdStadiumId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stadiums",
+                    "{{createdStadiumId}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('persistió', () => pm.expect(pm.response.json().stadium.location.city).to.eql('Rosario'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Estadio — borrar como admin → 200",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/stadiums/{{createdStadiumId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stadiums",
+                    "{{createdStadiumId}}"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Estadio — borrado ya no existe → 404",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/stadiums/{{createdStadiumId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stadiums",
+                    "{{createdStadiumId}}"
+                  ]
+                }
+              },
+              "event": []
+            }
+          ]
+        },
+        {
+          "name": "03 Reseñas",
+          "description": "Ciclo de vida de una reseña: validaciones, alta, lectura, like y baja con control de autoría.",
+          "item": [
+            {
+              "name": "Reseña — crear sin sesión → 401",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/visits",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "visits"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"stadium\": \"{{cilindroId}}\",\n  \"visitDate\": \"2026-06-01\",\n  \"rating\": 8,\n  \"reviewText\": \"Reseña creada por Newman\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Reseña — sin campos obligatorios → 400",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/visits",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "visits"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{anaToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"reviewText\": \"Sin estadio ni fecha\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Reseña — puntaje 11 (fuera de 1 a 10) → 400",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/visits",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "visits"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{anaToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"stadium\": \"{{cilindroId}}\",\n  \"visitDate\": \"2026-06-01\",\n  \"rating\": 11,\n  \"reviewText\": \"Reseña creada por Newman\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Reseña — puntaje decimal → 400",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/visits",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "visits"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{anaToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"stadium\": \"{{cilindroId}}\",\n  \"visitDate\": \"2026-06-01\",\n  \"rating\": 7.5,\n  \"reviewText\": \"Reseña creada por Newman\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Reseña — estadio inexistente → 400",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/visits",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "visits"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{anaToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"stadium\": \"20000000-0000-4000-8000-000000009999\",\n  \"visitDate\": \"2026-06-01\",\n  \"rating\": 8,\n  \"reviewText\": \"Reseña creada por Newman\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Reseña — Ana reseña el Cilindro → 201",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/visits",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "visits"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{anaToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"stadium\": \"{{cilindroId}}\",\n  \"visitDate\": \"2026-06-01\",\n  \"rating\": 8,\n  \"reviewText\": \"Reseña creada por Newman\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('devuelve la reseña creada', () => {",
+                      "  pm.response.to.have.jsonSchema(JSON.parse(pm.collectionVariables.get('schemaVisit')));",
+                      "  const v = pm.response.json();",
+                      "  pm.expect(v.rating).to.eql(8);",
+                      "  pm.expect(v.stadium).to.eql(pm.collectionVariables.get('cilindroId'));",
+                      "  pm.collectionVariables.set('createdVisitId', v._id);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Reseñas — por estadio incluye la nueva → 200",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/visits/stadium/{{cilindroId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "visits",
+                    "stadium",
+                    "{{cilindroId}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('la reseña nueva está, con su autora', () => {",
+                      "  const v = pm.response.json().find((x) => x._id === pm.collectionVariables.get('createdVisitId'));",
+                      "  pm.expect(v, 'reseña creada').to.exist;",
+                      "  pm.expect(v.user.username).to.eql('qa_ana');",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Like — Beto le da me gusta → 200",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/visits/{{createdVisitId}}/like",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "visits",
+                    "{{createdVisitId}}",
+                    "like"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{betoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('queda con 1 me gusta', () => pm.expect(pm.response.json()).to.eql({ liked: true, likesCount: 1 }));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Like — a la propia reseña → 400",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/visits/{{createdVisitId}}/like",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "visits",
+                    "{{createdVisitId}}",
+                    "like"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{anaToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Like — reseña inexistente → 404",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/visits/40000000-0000-4000-8000-000000009999/like",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "visits",
+                    "40000000-0000-4000-8000-000000009999",
+                    "like"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{betoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Reseña — Beto intenta borrar la de Ana → 403",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/visits/{{createdVisitId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "visits",
+                    "{{createdVisitId}}"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{betoToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Reseña — Ana borra la suya → 200",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/visits/{{createdVisitId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "visits",
+                    "{{createdVisitId}}"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{anaToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Reseña — borrarla otra vez → 404",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/visits/{{createdVisitId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "visits",
+                    "{{createdVisitId}}"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{anaToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": []
+            }
+          ]
+        },
+        {
+          "name": "04 Usuarios",
+          "description": "Perfiles, búsqueda, seguir y control de acceso por rol.",
+          "item": [
+            {
+              "name": "Perfil — propio → 200",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users/profile",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "profile"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{anaToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('incluye a quién sigue (Beto, del seed)', () => pm.expect(pm.response.json().following.map((u) => u.username)).to.include('qa_beto'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Perfil — sin sesión → 401",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users/profile",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "profile"
+                  ]
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Perfil público — Beto → 200",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users/{{betoId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "{{betoId}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('no expone datos privados', () => {",
+                      "  const u = pm.response.json();",
+                      "  pm.expect(u.username).to.eql('qa_beto');",
+                      "  pm.expect(u).to.not.have.any.keys('email', 'password', 'tokenVersion');",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Perfil público — inexistente → 404",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users/30000000-0000-4000-8000-000000009999",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "30000000-0000-4000-8000-000000009999"
+                  ]
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Usuarios — buscar \"qa_b\" → 200",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users/search?username=qa_b",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "search"
+                  ],
+                  "query": [
+                    {
+                      "key": "username",
+                      "value": "qa_b"
+                    }
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{anaToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('encuentra a Beto', () => pm.expect(pm.response.json().map((u) => u.username)).to.include('qa_beto'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Follow — seguirse a sí mismo → 400",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users/follow/{{anaId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "follow",
+                    "{{anaId}}"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{anaToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Follow — usuario inexistente → 404",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users/follow/30000000-0000-4000-8000-000000009999",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "follow",
+                    "30000000-0000-4000-8000-000000009999"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{anaToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Admin — listar usuarios como usuario común → 403",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users/admin/all",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "admin",
+                    "all"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{anaToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": []
+            },
+            {
+              "name": "Admin — listar usuarios como admin → 200",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/users/admin/all",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "users",
+                    "admin",
+                    "all"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{adminToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": []
+            }
+          ]
+        },
+        {
+          "name": "05 Clubes, estadísticas y salud",
+          "item": [
+            {
+              "name": "Salud — /health → 200",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/health",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "health"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('status ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Clubes — lista pública → 200",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/clubs/list",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "clubs",
+                    "list"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('los 3 clubes del seed, ordenados por nombre', () => {",
+                      "  const names = pm.response.json().map((c) => c.name);",
+                      "  pm.expect(names).to.eql(['Boca Juniors', 'Racing Club', 'River Plate']);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Estadísticas — públicas → 200",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/stats/public",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "stats",
+                    "public"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('totales coherentes con el seed', () => {",
+                      "  const { totals } = pm.response.json();",
+                      "  pm.expect(totals.stadiums).to.be.at.least(4);",
+                      "  pm.expect(totals.reviews).to.be.at.least(3);",
+                      "  pm.expect(totals.avgRating).to.be.within(1, 10);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Ruta inexistente → 404",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/no-existe",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "no-existe"
+                  ]
+                }
+              },
+              "event": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Data-driven",
+      "description": "Se corre aparte con data/logins.csv (newman --folder Data-driven -d ...). Cada fila es una iteración con su expectedStatus.",
+      "item": [
+        {
+          "name": "Login data-driven — casos del CSV",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(`[CSV] ${pm.iterationData.get('caso')}`, () => pm.response.to.have.status(Number(pm.iterationData.get('expectedStatus'))));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

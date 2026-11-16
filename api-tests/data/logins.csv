@@ -1,0 +1,8 @@
+caso,email,username,password,expectedStatus
+Email y contraseña correctos,qa.ana@giracanchera.test,,{{anaPassword}},200
+Username en lugar de email,,qa_beto,{{betoPassword}},200
+Email en mayúsculas (se normaliza),QA.ANA@GIRACANCHERA.TEST,,{{anaPassword}},200
+Contraseña de otra cuenta,qa.ana@giracanchera.test,,{{betoPassword}},401
+Cuenta inexistente,fantasma@giracanchera.test,,Clave12345,401
+Contraseña vacía,qa.ana@giracanchera.test,,,400
+Sin email ni username,,,Clave12345,400
