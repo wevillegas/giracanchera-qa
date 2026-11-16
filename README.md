@@ -91,6 +91,7 @@ Los scripts **se niegan a correr** si `TEST_DATABASE_URL` no apunta a `localhost
 ## Reportes
 
 - **Local:** `reports/api.html`, `reports/api-login-csv.html` (htmlextra) y `reports/e2e/` (`npm run test:e2e:report`). En fallos E2E, screenshot y trace en `test-results/` (`npx playwright show-trace <zip>`).
+- **Público:** el último reporte de `main` está en **[wevillegas.github.io/giracanchera-qa](https://wevillegas.github.io/giracanchera-qa/)** (GitHub Pages, se publica también cuando los tests fallan). Va sin los traces de Playwright, que graban lo que se tipea; esos quedan solo en el artifact.
 - **CI:** cada corrida sube el artifact **`qa-reports`** (HTML + JUnit + traces + log de la API), aunque los tests fallen. Pestaña [Actions](https://github.com/wevillegas/giracanchera-qa/actions) → la corrida → *Artifacts*. Los fallos de Playwright aparecen además como anotaciones en el PR.
 
 ## Decisiones técnicas

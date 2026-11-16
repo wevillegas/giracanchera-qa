@@ -115,6 +115,7 @@ jobs:
 
       # Corre aunque Newman falle: un solo push da el panorama completo
       - name: Tests E2E (Playwright)
+        id: e2e
         if: ${{ !cancelled() && steps.api.outcome != 'skipped' }}
         run: npm run test:e2e
 
@@ -128,3 +129,43 @@ jobs:
             test-results/
             api.log
           retention-days: 14
+
+      # Solo main publica en GitHub Pages: los PR y otras ramas dejan sus reportes únicamente como artifact
+      - name: Armar el sitio de reportes
+        if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        env:
+          API_OUTCOME: ${{ steps.api.outcome }}
+          E2E_OUTCOME: ${{ steps.e2e.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SHA: ${{ github.sha }}
+        run: |
+          mkdir -p site/api
+          cp -r reports/e2e site/e2e 2>/dev/null || true
+          # Sin traces: graban lo que se tipea, incluida la contraseña de prueba. Siguen en el artifact.
+          rm -f site/e2e/data/*.zip
+          cp reports/api.html site/api/index.html 2>/dev/null || true
+          cp reports/api-login-csv.html site/api/login-csv.html 2>/dev/null || true
+          node scripts/pages-index.js > site/index.html
+
+      - name: Subir el sitio a GitHub Pages
+        if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  pages:
+    name: Publicar reportes en GitHub Pages
+    needs: qa
+    # También cuando los tests fallan: el reporte publicado muestra qué se rompió
+    if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.qa.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Desplegar
+        id: deploy
+        uses: actions/deploy-pages@v4
