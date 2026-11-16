@@ -10,7 +10,7 @@ on:
         default: main
       front_ref:
         description: Rama o commit del frontend
-        default: qa/pipeline
+        default: main
 
 # Un push nuevo a la misma rama cancela la corrida anterior
 concurrency:
@@ -67,7 +67,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: wevillegas/giracanchera-frontend
-          ref: ${{ inputs.front_ref || 'qa/pipeline' }}
+          ref: ${{ inputs.front_ref || 'main' }}
           path: giracanchera-front
 
       - name: Setup Node (con caché de npm)
