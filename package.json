@@ -1,0 +1,30 @@
+{
+  "name": "giracanchera-qa",
+  "private": true,
+  "type": "module",
+  "description": "Pipeline de QA de GiraCanchera: tests de API (Postman/Newman) y E2E (Playwright)",
+  "scripts": {
+    "db:test:up": "docker compose -f docker-compose.test.yml up -d --wait",
+    "db:test:down": "docker compose -f docker-compose.test.yml down",
+    "db:test:reset": "node scripts/db.js reset",
+    "db:test:seed": "node scripts/db.js seed",
+    "start:api": "node scripts/start.js api",
+    "start:web": "node scripts/start.js web",
+    "start": "node scripts/start.js api web",
+    "test:api": "node scripts/test-api.js local",
+    "test:api:ci": "node scripts/test-api.js ci",
+    "test:e2e": "playwright test",
+    "test:e2e:report": "playwright show-report reports/e2e",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@types/node": "^22.20.5",
+    "newman": "^6.2.3",
+    "newman-reporter-htmlextra": "^1.23.1",
+    "typescript": "^7.0.2"
+  }
+}

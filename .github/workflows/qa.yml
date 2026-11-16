@@ -1,0 +1,130 @@
+name: QA
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      back_ref:
+        description: Rama o commit del backend
+        default: main
+      front_ref:
+        description: Rama o commit del frontend
+        default: qa/pipeline
+
+# Un push nuevo a la misma rama cancela la corrida anterior
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    name: API (Newman) + E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Base de test efímera: nace y muere con el job
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: qa
+          POSTGRES_PASSWORD: qa
+          POSTGRES_DB: giracanchera_test
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U qa -d giracanchera_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+
+    env:
+      CI: true
+      BACK_DIR: giracanchera-back
+      FRONT_DIR: giracanchera-front
+      TEST_DATABASE_URL: postgresql://qa:qa@localhost:5434/giracanchera_test
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      QA_ADMIN_PASSWORD: ${{ secrets.QA_ADMIN_PASSWORD }}
+      QA_USER_PASSWORD: ${{ secrets.QA_USER_PASSWORD }}
+      QA_USER2_PASSWORD: ${{ secrets.QA_USER2_PASSWORD }}
+
+    steps:
+      - name: Checkout QA
+        uses: actions/checkout@v4
+
+      - name: Checkout backend
+        uses: actions/checkout@v4
+        with:
+          repository: wevillegas/giracanchera-backend
+          ref: ${{ inputs.back_ref || 'main' }}
+          path: giracanchera-back
+
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+        with:
+          repository: wevillegas/giracanchera-frontend
+          ref: ${{ inputs.front_ref || 'qa/pipeline' }}
+          path: giracanchera-front
+
+      - name: Setup Node (con caché de npm)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            giracanchera-back/package-lock.json
+            giracanchera-front/package-lock.json
+
+      - name: Instalar dependencias
+        run: |
+          npm ci
+          npm ci --prefix giracanchera-back
+          npm ci --prefix giracanchera-front
+
+      - name: Migraciones de Prisma en la base de test
+        run: npm run db:test:reset
+
+      - name: Caché de navegadores de Playwright
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Instalar Chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Dependencias del sistema para Chromium
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Levantar la API y esperar a que responda
+        run: |
+          npm run start:api > api.log 2>&1 &
+          curl --retry 30 --retry-delay 1 --retry-all-errors -sf http://localhost:5000/api/health
+
+      - name: Tests de API (Newman)
+        id: api
+        run: npm run test:api:ci
+
+      # Corre aunque Newman falle: un solo push da el panorama completo
+      - name: Tests E2E (Playwright)
+        if: ${{ !cancelled() && steps.api.outcome != 'skipped' }}
+        run: npm run test:e2e
+
+      - name: Subir reportes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-reports
+          path: |
+            reports/
+            test-results/
+            api.log
+          retention-days: 14
