@@ -39,9 +39,10 @@ export default defineConfig({
     { name: 'mobile', use: { ...devices['Pixel 7'] }, dependencies: ['setup'], testMatch: /mobile\.spec\.ts/ },
   ],
 
-  // Levanta API y frontend contra la base de test si no están corriendo (en CI, siempre los levanta él)
+  // Levanta API y frontend contra la base de test si no están corriendo; si ya están (en CI la API la levanta el
+  // workflow para Newman), los reusa. global-setup corta la corrida si la API de :5000 no usa la base de test.
   webServer: [
-    { command: 'node scripts/start.js api', url: 'http://localhost:5000/api/health', reuseExistingServer: !CI, timeout: 60_000 },
-    { command: 'node scripts/start.js web', url: 'http://localhost:5173', reuseExistingServer: !CI, timeout: 60_000 },
+    { command: 'node scripts/start.js api', url: 'http://localhost:5000/api/health', reuseExistingServer: true, timeout: 60_000 },
+    { command: 'node scripts/start.js web', url: 'http://localhost:5173', reuseExistingServer: true, timeout: 60_000 },
   ],
 });
