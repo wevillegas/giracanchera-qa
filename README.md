@@ -26,6 +26,18 @@ flowchart LR
   G -. falla .-> X
 ```
 
+### Cuándo corre
+
+| Evento | Qué se prueba | Para qué |
+|---|---|---|
+| Pull request en el **backend** o el **frontend** | La rama del PR + el `main` del otro repo | **Gating**: el check aparece en el PR y frena el merge si algo se rompe, antes de que Render o Vercel desplieguen |
+| Push a `main` del backend o del frontend | Ese commit + el `main` del otro repo | Confirmar lo que se desplegó |
+| Push o PR en este repo | `main` de ambos repos | Probar cambios en los tests |
+| Todos los días, 6:00 (Argentina) | `main` de ambos repos | Detectar lo que se rompe sin que nadie toque código (dependencias, servicios externos) |
+| A mano (*Run workflow*) | Las ramas que elijas | Probar cualquier combinación |
+
+El backend y el frontend no copian los tests: cada uno tiene un workflow de pocas líneas que llama a este con `uses: wevillegas/giracanchera-qa/.github/workflows/qa.yml@main` (*reusable workflow*). La lógica vive en un solo lugar.
+
 ## Qué cubre
 
 ### API — Postman + Newman (`api-tests/`)

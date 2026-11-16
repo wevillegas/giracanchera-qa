@@ -3,6 +3,9 @@ name: QA
 on:
   push:
   pull_request:
+  # Red de seguridad: todos los días a las 6:00 (Argentina), aunque nadie toque código
+  schedule:
+    - cron: '0 9 * * *'
   workflow_dispatch:
     inputs:
       back_ref:
@@ -11,8 +14,27 @@ on:
       front_ref:
         description: Rama o commit del frontend
         default: main
+  # Lo llaman los repos del backend y del frontend en sus PR y en cada push a main, con la versión a probar
+  workflow_call:
+    inputs:
+      back_ref:
+        type: string
+        default: main
+      front_ref:
+        type: string
+        default: main
+    secrets:
+      JWT_SECRET:
+        required: true
+      QA_ADMIN_PASSWORD:
+        required: true
+      QA_USER_PASSWORD:
+        required: true
+      QA_USER2_PASSWORD:
+        required: true
 
-# Un push nuevo a la misma rama cancela la corrida anterior
+# Un push nuevo a la misma rama cancela la corrida anterior (los repos que llaman a este workflow no definen
+# su propio grupo: si lo hicieran con el mismo nombre, la corrida se cancelaría a sí misma)
 concurrency:
   group: qa-${{ github.ref }}
   cancel-in-progress: true
@@ -53,8 +75,12 @@ jobs:
       QA_USER2_PASSWORD: ${{ secrets.QA_USER2_PASSWORD }}
 
     steps:
+      # Explícito: cuando lo llama el backend o el frontend, el checkout por defecto bajaría ESE repo
       - name: Checkout QA
         uses: actions/checkout@v4
+        with:
+          repository: wevillegas/giracanchera-qa
+          ref: ${{ github.repository == 'wevillegas/giracanchera-qa' && github.sha || 'main' }}
 
       - name: Checkout backend
         uses: actions/checkout@v4
@@ -132,7 +158,7 @@ jobs:
 
       # Solo main publica en GitHub Pages: los PR y otras ramas dejan sus reportes únicamente como artifact
       - name: Armar el sitio de reportes
-        if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        if: ${{ always() && github.repository == 'wevillegas/giracanchera-qa' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         env:
           API_OUTCOME: ${{ steps.api.outcome }}
           E2E_OUTCOME: ${{ steps.e2e.outcome }}
@@ -148,7 +174,7 @@ jobs:
           node scripts/pages-index.js > site/index.html
 
       - name: Subir el sitio a GitHub Pages
-        if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        if: ${{ always() && github.repository == 'wevillegas/giracanchera-qa' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
@@ -157,7 +183,7 @@ jobs:
     name: Publicar reportes en GitHub Pages
     needs: qa
     # También cuando los tests fallan: el reporte publicado muestra qué se rompió
-    if: ${{ always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.qa.result != 'cancelled' }}
+    if: ${{ always() && github.repository == 'wevillegas/giracanchera-qa' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.qa.result != 'cancelled' }}
     runs-on: ubuntu-latest
     permissions:
       pages: write
